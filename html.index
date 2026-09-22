@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>AI Chat</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --border:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa3b2; --accent:#6c8cff; --accent2:#8b5cf6;
+    --user:#2b3a67; --danger:#ff5f56; --ok:#34d399;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  header{display:flex;align-items:center;gap:8px;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;
+    background:linear-gradient(180deg,#171a21,#12151b);
+    border-bottom:1px solid var(--border);position:relative;z-index:5}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+  .dot{width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 0 10px #6c8cff88}
+  .tabs{display:flex;gap:3px;margin-left:auto;background:var(--panel);
+    border:1px solid var(--border);border-radius:999px;padding:3px}
+  .tab{border:0;background:transparent;color:var(--muted);font-size:12px;
+    font-weight:600;padding:6px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .tab.active{background:var(--accent);color:#fff}
+  .icon-btn{border:1px solid var(--border);background:var(--panel);color:var(--text);
+    width:38px;height:38px;border-radius:12px;font-size:17px;cursor:pointer;
+    display:grid;place-items:center;flex:0 0 auto}
+  main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  .view{flex:1;overflow-y:auto;display:none;padding:14px 12px 6px}
+  .view.active{display:block}
+  .msg{display:flex;margin-bottom:14px}
+  .msg .bubble{max-width:88%;padding:11px 14px;border-radius:16px;
+    line-height:1.55;font-size:15px;word-wrap:break-word;white-space:pre-wrap}
+  .msg.user{justify-content:flex-end}
+  .msg.user .bubble{background:var(--user);border-bottom-right-radius:5px}
+  .msg.ai .bubble{background:var(--panel2);border:1px solid var(--border);
+    border-bottom-left-radius:5px}
+  .typing{display:inline-flex;gap:4px;align-items:center;height:16px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);
+    animation:bounce 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}
+  .typing i:nth-child(3){animation-delay:.3s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}
+    30%{transform:translateY(-4px);opacity:1}}
+  .composer{display:flex;gap:8px;align-items:flex-end;
+    padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);
+    background:#12151b;border-top:1px solid var(--border)}
+  textarea{flex:1;resize:none;max-height:140px;min-height:44px;background:var(--panel);
+    color:var(--text);border:1px solid var(--border);border-radius:14px;
+    padding:12px 14px;font-size:15px;font-family:inherit;line-height:1.4;
+    outline:none}
+  textarea:focus{border-color:var(--accent)}
+  .send{width:46px;height:46px;border-radius:14px;border:0;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+    font-size:18px;cursor:pointer;display:grid;place-items:center}
+  .send:disabled{opacity:.45}
+  .panel-box{background:var(--panel);border:1px solid var(--border);
+    border-radius:16px;padding:14px;margin-bottom:14px}
+  .panel-box label{display:block;font-size:12px;color:var(--muted);
+    margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .result-img{width:100%;border-radius:14px;border:1px solid var(--border);
+    display:block;margin-top:12px}
+  .result-video{width:100%;border-radius:14px;border:1px solid var(--border);
+    display:block;margin-top:12px;background:#000}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .overlay{position:fixed;inset:0;background:#000000b8;backdrop-filter:blur(4px);
+    display:none;align-items:flex-end;z-index:50}
+  .overlay.open{display:flex}
+  .sheet{width:100%;background:var(--panel);border-radius:22px 22px 0 0;
+    padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 20px);
+    border-top:1px solid var(--border);max-height:88vh;overflow-y:auto}
+  .sheet h2{margin:0 0 16px;font-size:17px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);
+    margin-bottom:6px;font-weight:600}
+  .field input,.field select{width:100%;background:var(--panel2);
+    border:1px solid var(--border);color:var(--text);border-radius:12px;
+    padding:12px;font-size:15px;font-family:inherit;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px;margin-top:6px}
+  .btn{flex:1;padding:13px;border-radius:13px;border:0;font-size:15px;
+    font-weight:600;cursor:pointer;font-family:inherit}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+  .status{font-size:12px;margin-top:10px;min-height:16px}
+  .status.err{color:var(--danger)}.status.ok{color:var(--ok)}
+  .empty{text-align:center;color:var(--muted);font-size:14px;
+    padding:40px 20px;line-height:1.6}
+  .progress{height:6px;background:var(--panel2);border-radius:99px;
+    overflow:hidden;margin-top:10px}
+  .progress > i{display:block;height:100%;width:0;background:
+    linear-gradient(90deg,var(--accent),var(--accent2));transition:width .4s}
+  .mode-info{font-size:12px;color:var(--muted);margin-top:8px;
+    padding:8px 10px;background:var(--panel2);border-radius:10px;line-height:1.5}
+  .upload-btn{display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;padding:14px;border-radius:12px;
+    background:var(--panel2);border:1.5px dashed var(--border);
+    color:var(--text);font-size:14px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:.15s}
+  .upload-btn:active{transform:scale(.98);border-color:var(--accent)}
+  .upload-btn .plus{font-size:18px;color:var(--accent)}
+  .thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+    gap:8px;margin-top:10px}
+  .thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;
+    background:var(--panel2);border:1px solid var(--border)}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .remove{position:absolute;top:4px;right:4px;width:24px;height:24px;
+    border-radius:50%;background:#000000cc;color:#fff;border:0;
+    font-size:14px;line-height:1;cursor:pointer;display:grid;place-items:center;
+    padding:0}
+  .thumb .remove:active{background:var(--danger)}
+  .thumb .uploading{position:absolute;inset:0;background:#000000aa;
+    display:grid;place-items:center;color:#fff;font-size:11px}
+  .audio-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+    background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;margin-top:8px;font-size:13px}
+  .audio-item .icon{font-size:18px;flex:0 0 auto}
+  .audio-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:var(--muted)}
+  .audio-item .remove{background:#00000055;color:#fff;border:0;width:26px;height:26px;
+    border-radius:50%;cursor:pointer;font-size:14px;flex:0 0 auto;
+    display:grid;place-items:center;padding:0}
+  .audio-item .remove:active{background:var(--danger)}
+  .counter{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+  .proxy-indicator{font-size:10px;color:var(--muted);padding:2px 6px;
+    background:var(--panel2);border-radius:6px;margin-left:4px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot"></span>AI Chat</div>
+  <div class="tabs">
+    <button class="tab active" data-tab="chat">Chat</button>
+    <button class="tab" data-tab="image">Image</button>
+    <button class="tab" data-tab="video">Vidéo</button>
+  </div>
+  <button class="icon-btn" id="btnSettings" title="Reglages">&#9881;</button>
+</header>
+
+<main>
+  <section class="view active" id="view-chat">
+    <div id="empty" class="empty">
+      Appuyez sur &#9881; pour configurer la cle API, puis commencez a ecrire.
+    </div>
+    <div id="messages"></div>
+  </section>
+
+  <section class="view" id="view-image">
+    <div class="panel-box">
+      <label for="imgPrompt">Description de l'image</label>
+      <textarea id="imgPrompt" rows="3"
+        placeholder="Ex : un renard roux dans une foret enneigee, lumiere doree"></textarea>
+      <div class="row">
+        <button class="btn primary" id="btnImage">Generer</button>
+      </div>
+      <div class="status" id="imgStatus"></div>
+      <div id="imgResult"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-video">
+    <div class="panel-box">
+      <label for="videoMode">Mode de generation</label>
+      <select id="videoMode">
+        <option value="text" selected>Texte vers Video</option>
+        <option value="keyframe">Keyframes (image de debut / fin)</option>
+        <option value="reference">Reference (image(s) et/ou audio)</option>
+      </select>
+
+      <div id="modeInfo" class="mode-info"></div>
+
+      <label for="videoPrompt" style="margin-top:14px">Description de la video</label>
+      <textarea id="videoPrompt" rows="4"
+        placeholder="Ex : une voiture de sport argentee roule lentement dans une rue futuriste apres la pluie"></textarea>
+
+      <div id="keyframeBlock" style="display:none;margin-top:14px">
+        <label>Images de keyframe (1 a 2)</label>
+        <button type="button" class="upload-btn" id="btnUploadKeyframes">
+          <span class="plus">+</span> Ajouter des images depuis le telephone
+        </button>
+        <input type="file" id="fileKeyframes" accept="image/*" multiple hidden>
+        <div class="thumb-grid" id="thumbKeyframes"></div>
+        <div class="counter" id="counterKeyframes">0 / 2</div>
+        <p class="hint" style="margin-top:6px">
+          1 image = point de depart. 2 images = debut puis fin.
+        </p>
+      </div>
+
+      <div id="referenceBlock" style="display:none;margin-top:14px">
+        <label>Images de reference (jusqu'a 5)</label>
+        <button type="button" class="upload-btn" id="btnUploadRefImages">
+          <span class="plus">+</span> Ajouter des images depuis le telephone
+        </button>
+        <input type="file" id="fileRefImages" accept="image/*" multiple hidden>
+        <div class="thumb-grid" id="thumbRefImages"></div>
+        <div class="counter" id="counterRefImages">0 / 5</div>
+
+        <label style="margin-top:14px">Audios de reference (jusqu'a 3)</label>
+        <button type="button" class="upload-btn" id="btnUploadRefAudios">
+          <span class="plus">+</span> Ajouter des audios depuis le telephone
+        </button>
+        <input type="file" id="fileRefAudios" accept="audio/*" multiple hidden>
+        <div id="listRefAudios"></div>
+        <div class="counter" id="counterRefAudios">0 / 3</div>
+
+        <p class="hint" style="margin-top:10px">
+          Les fichiers sont automatiquement uploades vers Catbox pour obtenir
+          une URL publique utilisable par Agnes AI.
+        </p>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <div style="flex:1">
+          <label for="videoSeconds">Duree (s)</label>
+          <select id="videoSeconds">
+            <option>4</option><option>5</option><option selected>6</option>
+            <option>8</option><option>10</option><option>12</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label for="videoSize">Resolution</label>
+          <select id="videoSize">
+            <option value="720P" selected>720P</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label for="videoAspect">Format</label>
+          <select id="videoAspect">
+            <option value="16:9" selected>16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="btnVideo">Generer la video</button>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="btnVideoCancel" style="display:none">Annuler le suivi</button>
+      </div>
+
+      <div class="status" id="videoStatus"></div>
+      <div class="progress" id="videoProgressWrap" style="display:none"><i id="videoProgress"></i></div>
+      <div id="videoResult"></div>
+    </div>
+    <p class="hint">
+      Modele : <b>agnes-video-2.5-flash</b>. Generation asynchrone via ton Worker Cloudflare.
+    </p>
+  </section>
+</main>
+
+<div class="composer" id="composer">
+  <textarea id="input" rows="1" placeholder="Ecris ton message..."></textarea>
+  <button class="send" id="btnSend" aria-label="Envoyer">&#10148;</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h2>Reglages</h2>
+
+    <div class="field">
+      <label for="apiKey">Cle API</label>
+      <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label for="baseUrl">URL de base de l'API</label>
+      <input id="baseUrl" type="text" placeholder="https://ton-worker.ton-compte.workers.dev/v1">
+    </div>
+
+    <div class="field">
+      <label for="model">Modele de chat</label>
+      <input id="model" type="text" placeholder="agnes-2.5-flash">
+    </div>
+
+    <div class="field">
+      <label for="system">Instruction systeme (optionnel)</label>
+      <input id="system" type="text" placeholder="Tu es un assistant concis.">
+    </div>
+
+    <div class="row">
+      <button class="btn ghost" id="btnClear">Effacer le chat</button>
+      <button class="btn primary" id="btnSave">Enregistrer</button>
+    </div>
+    <div class="row">
+      <button class="btn danger" id="btnWipe">Tout reinitialiser</button>
+    </div>
+
+    <div class="status" id="setStatus"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     CONFIGURATION
+     ============================================================ */
+  /* !!! REMPLACE par l'URL reelle de ton Worker Cloudflare !!! */
+  var DEFAULT_BASE   = "https://REPLACE-WITH-YOUR-WORKER.workers.dev/v1";
+  var DEFAULT_MODEL  = "agnes-2.5-flash";
+  var VIDEO_MODEL    = "agnes-video-2.5-flash";
+  var VIDEO_POLL_MS  = 3000;
+  var MAX_KEYFRAMES  = 2;
+  var MAX_REF_IMAGES = 5;
+  var MAX_REF_AUDIOS = 3;
+  var MAX_FILE_MB    = 10;
+
+  /* ============================================================
+     DOM
+     ============================================================ */
+  function $(id){ return document.getElementById(id); }
+  var messagesEl = $("messages");
+  var emptyEl    = $("empty");
+  var inputEl    = $("input");
+  var sendBtn    = $("btnSend");
+  var overlay    = $("overlay");
+
+  /* ============================================================
+     ETAT (localStorage protege contre file:// et erreurs)
+     ============================================================ */
+  function lsGet(key){
+    try { return localStorage.getItem(key); } catch(e){ return null; }
+  }
+  function lsSet(key, val){
+    try { localStorage.setItem(key, val); } catch(e){}
+  }
+
+  var apiKey   = lsGet("ai.apiKey")   || "";
+  var baseUrl  = lsGet("ai.baseUrl")  || DEFAULT_BASE;
+  var model    = lsGet("ai.model")    || DEFAULT_MODEL;
+  var system   = lsGet("ai.system")   || "";
+
+  var messages = [];
+  try { messages = JSON.parse(lsGet("ai.history") || "[]"); }
+  catch(e){ messages = []; }
+
+  var chatController = null;
+  var isStreaming = false;
+  var videoPollTimer = null;
+  var videoPollAbort = null;
+
+  var keyframeFiles = [];  // { name, url, status }
+  var refImages     = [];
+  var refAudios     = [];
+
+  /* ============================================================
+     UTILITAIRES
+     ============================================================ */
+  function apiRoot(){ return baseUrl.replace(/\/+$/, ""); }
+
+  function saveHistory(){
+    lsSet("ai.history", JSON.stringify(messages));
+  }
+
+  function scrollBottom(){
+    var v = document.querySelector(".view.active");
+    if (v) v.scrollTop = v.scrollHeight;
+  }
+
+  function showEmpty(){
+    emptyEl.style.display = messages.length ? "none" : "block";
+  }
+
+  function setStatus(el, text, kind){
+    el.textContent = text || "";
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function fileSizeMB(file){ return file.size / (1024 * 1024); }
+
+  function sleep(ms){
+    return new Promise(function(r){ setTimeout(r, ms); });
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  /* ============================================================
+     REQUETES VIA LE WORKER CLOUDFLARE
+     (plus de cascade de proxies publics : le Worker gere le CORS)
+     ============================================================ */
+  async function apiFetch(path, options, maxRetries){
+    options = options || {};
+    maxRetries = (maxRetries == null) ? 2 : maxRetries;
+
+    for (var attempt = 0; attempt <= maxRetries; attempt++){
+      var target = apiRoot() + path;
+
+      var opts = {
+        method: options.method || "GET",
+        headers: Object.assign({
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json"
+        }, options.headers || {})
+      };
+      if (options.body != null) opts.body = JSON.stringify(options.body);
+      if (options.signal) opts.signal = options.signal;
+
+      try {
+        var res = await fetch(target, opts);
+
+        /* Erreurs transitoires : on retente avec backoff */
+        if ((res.status === 429 || res.status >= 500) && attempt < maxRetries){
+          var delay = 3 * (attempt + 1);
+          console.warn("[Retry] HTTP " + res.status + ", nouvelle tentative dans " + delay + "s");
+          await sleep(delay * 1000);
+          continue;
+        }
+
+        if (!res.ok){
+          var errText = "";
+          try { errText = (await res.text()).slice(0, 300); } catch(e){}
+          throw new Error("HTTP " + res.status + " " + errText);
+        }
+
+        return res;
+
+      } catch(err){
+        if (attempt === maxRetries) throw err;
+        await sleep(3000 * (attempt + 1));
+      }
+    }
+    throw new Error("Impossible de joindre le Worker.");
+  }
+
+  async function apiJson(path, options){
+    var res = await apiFetch(path, options);
+    return await res.json();
+  }
+
+  /* ============================================================
+     CATBOX UPLOAD (CORS natif, pas de proxy necessaire)
+     ============================================================ */
+  async function uploadToCatbox(file){
+    var formData = new FormData();
+    formData.append("reqtype", "fileupload");
+    formData.append("fileToUpload", file);
+
+    var r = await fetch("https://catbox.moe/user/api.php", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!r.ok) throw new Error("Catbox HTTP " + r.status);
+
+    var url = (await r.text()).trim();
+    if (!/^https:\/\//.test(url)){
+      throw new Error("Reponse Catbox inattendue : " + url.slice(0, 100));
+    }
+    return url;
+  }
+
+  /* ============================================================
+     RENDU DU CHAT
+     ============================================================ */
+  function renderMessages(){
+    messagesEl.innerHTML = "";
+    messages.forEach(function(m){
+      addBubble(m.role, m.content, false);
+    });
+    showEmpty();
+    scrollBottom();
+  }
+
+  function addBubble(role, text, scroll){
+    var div = document.createElement("div");
+    div.className = "msg " + (role === "user" ? "user" : "ai");
+    var b = document.createElement("div");
+    b.className = "bubble";
+    b.textContent = text;
+    div.appendChild(b);
+    messagesEl.appendChild(div);
+    if (scroll !== false) scrollBottom();
+    return b;
+  }
+
+  function addTyping(){
+    var div = document.createElement("div");
+    div.className = "msg ai";
+    div.innerHTML = '<div class="bubble"><span class="typing"><i></i><i></i><i></i></span></div>';
+    messagesEl.appendChild(div);
+    scrollBottom();
+    return div.querySelector(".bubble");
+  }
+
+  /* ============================================================
+     CHAT
+     ============================================================ */
+  async function sendMessage(){
+    var text = inputEl.value.trim();
+    if (!text || isStreaming) return;
+
+    if (!apiKey){
+      setStatus($("setStatus") || messagesEl, "Configure la cle API dans les reglages.", "err");
+      openSettings();
+      return;
+    }
+
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+
+    messages.push({ role: "user", content: text });
+    saveHistory();
+    addBubble("user", text);
+    showEmpty();
+
+    isStreaming = true;
+    sendBtn.disabled = true;
+    chatController = new AbortController();
+
+    var bubble = addTyping();
+    var full = "";
+
+    try {
+      var payload = {
+        model: model,
+        messages: (system ? [{ role: "system", content: system }] : []).concat(messages.slice(-20))
+      };
+
+      var res = await fetch(apiRoot() + "/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: chatController.signal
+      });
+
+      if (!res.ok){
+        var errText = "";
+        try { errText = (await res.text()).slice(0, 300); } catch(e){}
+        throw new Error("HTTP " + res.status + " " + errText);
+      }
+
+      var data = await res.json();
+      full = (data.choices && data.choices[0] &&
+              data.choices[0].message && data.choices[0].message.content) || "(reponse vide)";
+
+      bubble.textContent = full;
+      messages.push({ role: "assistant", content: full });
+      saveHistory();
+
+    } catch(err){
+      if (err.name === "AbortError"){
+        bubble.textContent = full + "\n[interrompu]";
+        if (full) { messages.push({ role: "assistant", content: full }); saveHistory(); }
+      } else {
+        bubble.textContent = "Erreur : " + err.message;
+      }
+    } finally {
+      isStreaming = false;
+      sendBtn.disabled = false;
+      chatController = null;
+      scrollBottom();
+    }
+  }
+
+  /* ============================================================
+     GENERATION D'IMAGE
+     ============================================================ */
+  async function generateImage(){
+    var prompt = $("imgPrompt").value.trim();
+    var status = $("imgStatus");
+    var result = $("imgResult");
+
+    if (!prompt){ setStatus(status, "Decris l'image desiree.", "err"); return; }
+    if (!apiKey){ setStatus(status, "Cle API manquante.", "err"); openSettings(); return; }
+
+    $("btnImage").disabled = true;
+    setStatus(status, "Generation en cours...");
+    result.innerHTML = "";
+
+    try {
+      var data = await apiJson("/images/generations", {
+        method: "POST",
+        body: {
+          model: "agnes-image-2.5-flash",
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024"
+        }
+      });
+
+      var url = data.data && data.data[0] && data.data[0].url;
+      if (!url) throw new Error("Aucune image dans la reponse.");
+
+      var img = document.createElement("img");
+      img.className = "result-img";
+      img.src = url;
+      img.alt = prompt;
+      result.appendChild(img);
+      setStatus(status, "Image generee.", "ok");
+
+    } catch(err){
+      setStatus(status, "Erreur : " + err.message, "err");
+    } finally {
+      $("btnImage").disabled = false;
+    }
+  }
+
+  /* ============================================================
+     GESTION DES FICHIERS (keyframes / references)
+     ============================================================ */
+  async function handleFiles(fileList, store, maxCount, counterId, renderFn){
+    var counter = $(counterId);
+    var files = Array.prototype.slice.call(fileList);
+
+    for (var i = 0; i < files.length && store.length < maxCount; i++){
+      var f = files[i];
+      if (fileSizeMB(f) > MAX_FILE_MB){
+        setStatus($("videoStatus"), f.name + " depasse " + MAX_FILE_MB + " Mo.", "err");
+        continue;
+      }
+      var item = { name: f.name, file: f, url: null, status: "uploading" };
+      store.push(item);
+      renderFn();
+      try {
+        item.url = await uploadToCatbox(f);
+        item.status = "done";
+      } catch(err){
+        item.status = "error";
+      }
+      renderFn();
+    }
+    counter.textContent = store.length + " / " + maxCount;
+  }
+
+  function renderThumbGrid(store, gridId, counterId, maxCount){
+    var grid = $(gridId);
+    grid.innerHTML = "";
+    store.forEach(function(item, idx){
+      var d = document.createElement("div");
+      d.className = "thumb";
+      var img = document.createElement("img");
+      img.src = URL.createObjectURL(item.file);
+      d.appendChild(img);
+      if (item.status === "uploading"){
+        var up = document.createElement("div");
+        up.className = "uploading";
+        up.textContent = "envoi...";
+        d.appendChild(up);
+      } else if (item.status === "error"){
+        var er = document.createElement("div");
+        er.className = "uploading";
+        er.textContent = "echec";
+        d.appendChild(er);
+      }
+      var rm = document.createElement("button");
+      rm.className = "remove";
+      rm.textContent = "\u00d7";
+      rm.onclick = function(){
+        store.splice(idx, 1);
+        renderThumbGrid(store, gridId, counterId, maxCount);
+        $(counterId).textContent = store.length + " / " + maxCount;
+      };
+      d.appendChild(rm);
+      grid.appendChild(d);
+    });
+    $(counterId).textContent = store.length + " / " + maxCount;
+  }
+
+  function renderAudioList(){
+    var list = $("listRefAudios");
+    list.innerHTML = "";
+    refAudios.forEach(function(item, idx){
+      var d = document.createElement("div");
+      d.className = "audio-item";
+      d.innerHTML = '<span class="icon">\uD83C\uDFB5</span>' +
+        '<span class="name">' + esc(item.name) +
+        (item.status === "uploading" ? " (envoi...)" :
+         item.status === "error" ? " (echec)" : "") + '</span>';
+      var rm = document.createElement("button");
+      rm.className = "remove";
+      rm.textContent = "\u00d7";
+      rm.onclick = function(){
+        refAudios.splice(idx, 1);
+        renderAudioList();
+      };
+      d.appendChild(rm);
+      list.appendChild(d);
+    });
+    $("counterRefAudios").textContent = refAudios.length + " / " + MAX_REF_AUDIOS;
+  }
+
+  function updateModeInfo(){
+    var mode = $("videoMode").value;
+    var info = {
+      text: "Genere une video uniquement a partir de la description textuelle.",
+      keyframe: "Fournis 1 ou 2 images : elles serviront de point(s) de depart / fin.",
+      reference: "Fournis des images et/ou audios : le modele s'en inspirera."
+    };
+    $("modeInfo").textContent = info[mode] || "";
+    $("keyframeBlock").style.display = (mode === "keyframe") ? "block" : "none";
+    $("referenceBlock").style.display = (mode === "reference") ? "block" : "none";
+  }
+
+  /* ============================================================
+     GENERATION DE VIDEO (asynchrone + polling)
+     ============================================================ */
+  async function generateVideo(){
+    var prompt = $("videoPrompt").value.trim();
+    var mode = $("videoMode").value;
+    var status = $("videoStatus");
+
+    if (!prompt){ setStatus(status, "Decris la video desiree.", "err"); return; }
+    if (!apiKey){ setStatus(status, "Cle API manquante.", "err"); openSettings(); return; }
+
+    if (mode === "keyframe" && keyframeFiles.filter(function(k){return k.status==="done";}).length === 0){
+      setStatus(status, "Ajoute au moins une keyframe valide.", "err"); return;
+    }
+    if (mode === "reference" &&
+        refImages.filter(function(k){return k.status==="done";}).length === 0 &&
+        refAudios.filter(function(k){return k.status==="done";}).length === 0){
+      setStatus(status, "Ajoute au moins une image ou un audio de reference.", "err"); return;
+    }
+
+    var body = {
+      model: VIDEO_MODEL,
+      prompt: prompt,
+      duration: parseInt($("videoSeconds").value, 10),
+      size: $("videoSize").value,
+      aspect_ratio: $("videoAspect").value
+    };
+
+    if (mode === "keyframe"){
+      body.keyframes = keyframeFiles
+        .filter(function(k){ return k.status === "done"; })
+        .map(function(k){ return k.url; });
+    }
+    if (mode === "reference"){
+      body.reference_images = refImages
+        .filter(function(k){ return k.status === "done"; })
+        .map(function(k){ return k.url; });
+      body.reference_audios = refAudios
+        .filter(function(k){ return k.status === "done"; })
+        .map(function(k){ return k.url; });
+    }
+
+    $("btnVideo").disabled = true;
+    $("btnVideoCancel").style.display = "block";
+    $("videoProgressWrap").style.display = "block";
+    $("videoProgress").style.width = "5%";
+    setStatus(status, "Soumission de la requete...");
+
+    videoPollAbort = new AbortController();
+
+    try {
+      var data = await apiJson("/videos/generations", { method: "POST", body: body });
+      var taskId = data.id || (data.task && data.task.id) || data.task_id;
+      if (!taskId) throw new Error("Aucun id de tache renvoye.");
+
+      setStatus(status, "Generation lancee (tache " + taskId + "). Suivi...");
+      await pollVideo(taskId);
+
+    } catch(err){
+      if (err.name !== "AbortError"){
+        setStatus(status, "Erreur : " + err.message, "err");
+        $("videoProgressWrap").style.display = "none";
+      }
+    } finally {
+      $("btnVideo").disabled = false;
+      $("btnVideoCancel").style.display = "none";
+      videoPollAbort = null;
+    }
+  }
+
+  async function pollVideo(taskId){
+    var status = $("videoStatus");
+    var result = $("videoResult");
+    var attempts = 0;
+    var maxAttempts = 200; /* ~10 min */
+
+    return new Promise(function(resolve, reject){
+      videoPollTimer = setInterval(async function(){
+        attempts++;
+        if (attempts > maxAttempts){
+          clearInterval(videoPollTimer);
+          reject(new Error("Delai depasse."));
+          return;
+        }
+        try {
+          var data = await apiJson("/videos/generations/" + taskId, {
+            signal: videoPollAbort ? videoPollAbort.signal : undefined
+          });
+
+          var st = (data.status || (data.task && data.task.status) || "").toLowerCase();
+          var pct = data.progress || (data.task && data.task.progress) || 0;
+          $("videoProgress").style.width = Math.max(5, pct || (5 + attempts / 2)) + "%";
+          setStatus(status, "Statut : " + (st || "en cours") + "...");
+
+          if (st === "succeeded" || st === "success" || st === "completed" || data.url){
+            clearInterval(videoPollTimer);
+            $("videoProgress").style.width = "100%";
+            var url = data.url || (data.output && data.output.url) ||
+                      (data.task && data.task.url);
+            if (url){
+              result.innerHTML = "";
+              var vid = document.createElement("video");
+              vid.className = "result-video";
+              vid.controls = true;
+              vid.src = url;
+              result.appendChild(vid);
+              setStatus(status, "Video prete !", "ok");
+            } else {
+              setStatus(status, "Termine mais aucune URL de video renvoyee.", "err");
+            }
+            resolve();
+          } else if (st === "failed" || st === "error" || st === "cancelled"){
+            clearInterval(videoPollTimer);
+            reject(new Error("La generation a echoue : " + (data.error || st)));
+          }
+        } catch(err){
+          if (err.name === "AbortError"){
+            clearInterval(videoPollTimer);
+            resolve();
+          } else if (attempts > 3 && String(err.message).indexOf("Impossible") === 0){
+            clearInterval(videoPollTimer);
+            reject(err);
+          }
+        }
+      }, VIDEO_POLL_MS);
+    });
+  }
+
+  function cancelVideoPoll(){
+    if (videoPollTimer){ clearInterval(videoPollTimer); videoPollTimer = null; }
+    if (videoPollAbort) videoPollAbort.abort();
+    setStatus($("videoStatus"), "Suivi annule.", "err");
+    $("btnVideoCancel").style.display = "none";
+    $("btnVideo").disabled = false;
+  }
+
+  /* ============================================================
+     REGLAGES
+     ============================================================ */
+  function openSettings(){
+    $("apiKey").value = apiKey;
+    $("baseUrl").value = baseUrl;
+    $("model").value = model;
+    $("system").value = system;
+    overlay.classList.add("open");
+  }
+  function closeSettings(){
+    overlay.classList.remove("open");
+  }
+
+  function saveSettings(){
+    apiKey  = $("apiKey").value.trim();
+    baseUrl = $("baseUrl").value.trim() || DEFAULT_BASE;
+    model   = $("model").value.trim() || DEFAULT_MODEL;
+    system  = $("system").value.trim();
+
+    lsSet("ai.apiKey", apiKey);
+    lsSet("ai.baseUrl", baseUrl);
+    lsSet("ai.model", model);
+    lsSet("ai.system", system);
+
+    setStatus($("setStatus"), "Reglages enregistres.", "ok");
+    setTimeout(closeSettings, 600);
+  }
+
+  function wipeAll(){
+    try {
+      ["ai.apiKey","ai.baseUrl","ai.model","ai.system","ai.history"]
+        .forEach(function(k){ localStorage.removeItem(k); });
+    } catch(e){}
+    messages = [];
+    messagesEl.innerHTML = "";
+    showEmpty();
+    setStatus($("setStatus"), "Tout a ete reinitialise.", "ok");
+  }
+
+  /* ============================================================
+     ONGLETS
+     ============================================================ */
+  function switchTab(tabName){
+    document.querySelectorAll(".tab").forEach(function(t){
+      t.classList.toggle("active", t.dataset.tab === tabName);
+    });
+    document.querySelectorAll(".view").forEach(function(v){
+      v.classList.toggle("active", v.id === "view-" + tabName);
+    });
+  }
+
+  /* ============================================================
+     AUTO-RESIZE TEXTAREA
+     ============================================================ */
+  function autoResize(el){
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
+  /* ============================================================
+     INITIALISATION
+     ============================================================ */
+  document.querySelectorAll(".tab").forEach(function(t){
+    t.addEventListener("click", function(){ switchTab(t.dataset.tab); });
+  });
+
+  $("btnSettings").addEventListener("click", openSettings);
+  overlay.addEventListener("click", function(e){
+    if (e.target === overlay) closeSettings();
+  });
+
+  $("btnSave").addEventListener("click", saveSettings);
+  $("btnClear").addEventListener("click", function(){
+    messages = [];
+    messagesEl.innerHTML = "";
+    saveHistory();
+    showEmpty();
+    setStatus($("setStatus"), "Chat efface.", "ok");
+  });
+  $("btnWipe").addEventListener("click", wipeAll);
+
+  sendBtn.addEventListener("click", sendMessage);
+  inputEl.addEventListener("input", function(){ autoResize(inputEl); });
+  inputEl.addEventListener("keydown", function(e){
+    if (e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  $("btnImage").addEventListener("click", generateImage);
+  $("btnVideo").addEventListener("click", generateVideo);
+  $("btnVideoCancel").addEventListener("click", cancelVideoPoll);
+  $("videoMode").addEventListener("change", updateModeInfo);
+
+  $("btnUploadKeyframes").addEventListener("click", function(){ $("fileKeyframes").click(); });
+  $("fileKeyframes").addEventListener("change", function(){
+    handleFiles(this.files, keyframeFiles, MAX_KEYFRAMES, "counterKeyframes", function(){
+      renderThumbGrid(keyframeFiles, "thumbKeyframes", "counterKeyframes", MAX_KEYFRAMES);
+    });
+    this.value = "";
+  });
+
+  $("btnUploadRefImages").addEventListener("click", function(){ $("fileRefImages").click(); });
+  $("fileRefImages").addEventListener("change", function(){
+    handleFiles(this.files, refImages, MAX_REF_IMAGES, "counterRefImages", function(){
+      renderThumbGrid(refImages, "thumbRefImages", "counterRefImages", MAX_REF_IMAGES);
+    });
+    this.value = "";
+  });
+
+  $("btnUploadRefAudios").addEventListener("click", function(){ $("fileRefAudios").click(); });
+  $("fileRefAudios").addEventListener("change", function(){
+    handleFiles(this.files, refAudios, MAX_REF_AUDIOS, "counterRefAudios", renderAudioList);
+    this.value = "";
+  });
+
+  updateModeInfo();
+  renderMessages();
+  autoResize(inputEl);
+
+  console.log("AI Chat pret. API via : " + apiRoot());
+})();
+</script>
+</body>
+</html>
